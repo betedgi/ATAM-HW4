@@ -1,0 +1,1616 @@
+tks = 177560
+tkb = 177562
+tps = 177564
+tpb = 177566
+lcs = 177546
+TIE = 25
+WIN = 1
+LOSE = 177777
+NOMOV = 30
+NOVAL = 40
+NIL = 50
+.=torg +2000
+
+;######################start of game##########################
+main:
+          mov #1,@#Player
+          mov #1,@#currPlr
+          mov #main,(sp) ;start Stack in main
+          mov #0, -(sp) ;prints welcome message
+          mov #gameStr, -(sp) ;prints welcome message
+          jsr pc, print ;prints welcome message
+          tst (sp)+ ;cleans STACK
+          tst (sp)+ ;cleans STACK
+          clr gmeOn ;resets global variable which checks if game started
+          clr strlen ;resets the number of characther scanned in current session
+          clr plr1 ;resets player one's time
+          clr plr2 ;resets player two's time
+          mov #inStr, strpos ;moves message to temporary position
+          mov #clock, @#100 ;sets interuption function
+          mov #300, @#102
+          mov #scan, @#60 ;sets interuption function
+          mov #200, @#62 ;sets interuption
+          mov #101, @#tks ;sets interuption
+          cmp gmeOn, #1 ;waits til there is valid start parameters
+          bne .-6 ;waits til there is valid start parameters
+          jsr pc, gameloop ;enters game loop
+          halt
+
+gameloop:
+          clr strlen
+          mov #inStr, r1
+          mov #inStr, strpos
+          clr (r1)+
+          tst (r1)
+          bne .-4
+          jsr pc,p_gamelp ;print board and current player
+          clr mvOn ;clears the global variable which checks if move has been made
+          clr timeOut
+          cmp @#Player, #1 ;moves time and type of player to variable and stack
+          beq .+16 ;moves time and type of player to variable and stack
+          mov @#plr2, -(sp) ;moves time and type of player to variable and stack
+          mov @#plr2t, @#currt ;moves time and type of player to variable and stack
+          br .+14 ;moves time and type of player to variable and stack
+          mov @#plr1, -(sp) ;moves time and type of player to variable and stack
+          mov @#plr1t, @#currt ;moves time and type of player to variable and stack
+          mov r1, -(sp)
+          mov @#currt, r1
+          mul @#rate, r1
+          mov r1, @#currt
+          mov (sp)+, r1
+          clr @#count
+          tst (sp) ;does iterative deepning if the player is computer and scan otherwise
+          beq .+10 ;does iterative deepning if the player is computer and scan otherwise
+          jsr pc, itDeep ;does iterative deepning if the player is computer and make move otherwise
+          br .+6 ;does iterative deepning if the player is computer and make move otherwise~~
+          jsr pc, makemov
+          jsr pc, cngPlr ;change Player
+          jsr pc, cngPlayer
+          tst gmeOn ;checks if games has ended
+          bne gameloop ;checks if games has ended
+          halt
+
+p_gamelp:
+          jsr pc,printbrd
+          clr -(sp)
+          mov #crpStr, -(sp)
+          jsr pc, print
+          mov @#Player,2(sp)
+          dec 2(sp)
+          mov #BWStr, (sp)
+          jsr pc, print
+          mov @#Player,2(sp)
+          dec 2(sp)
+          tst 2(sp)
+          beq .+12
+          mov @#plr2, 2(sp)
+          br .+10
+          mov @#plr1, 2(sp)
+          mov #HCStr, (sp)
+          jsr pc,print
+          mov #1,2(sp)
+          mov #crpStr, (sp)
+          jsr pc,print
+          tst (sp)+
+          tst (sp)+
+          rts pc
+
+makemov:
+          bis #100, @#lcs
+          cmp mvOn, #1 ;waits til there is valid move parameters
+          bne .-6 ;waits til there is valid move parameters
+          tst timeOut
+          bne movenm ;todo
+          jsr pc, p_time ;todo
+          mov r4, -(sp)
+          clr r4
+          jsr pc, CalcWP
+          mov r4, @#lastWP
+          mov (sp)+,r4
+          rts pc
+
+movenm:
+          clr @#lcs   ;stops clock because game ended
+          dec gmeOn
+          clr -(sp)
+          clr -(sp)
+          mov #newlStr, (sp)
+          jsr pc, print
+          jsr pc, print
+          mov @#Player,2(sp)
+          dec 2(sp)
+          mov #BWStr, (sp)
+          jsr pc, print
+          cmp @#Player, #1
+          beq .+12
+          mov @#plr2, 2(sp)
+          br .+10
+          mov @#plr1, 2(sp)
+          mov #HCStr, (sp)
+          jsr pc,print
+          mov #ootStr,(sp)
+          jsr pc,print
+          clr (sp)+
+          clr (sp)+
+          rts pc
+
+itDeep:
+          mov #1, @#Steps ;Initialize Steps as 1
+          clr @#WinParam
+          clr @#dstPos
+          clr @#srcPos
+          mov #WinParam, -(sp)
+          mov #dstPos, -(sp)
+          mov #srcPos, -(sp)
+          bis #100, @#lcs
+
+it_loop:
+          jsr pc, getMaxWP
+          tst timeOut
+          bne eit_loop
+          add #2,@#Steps
+          br it_loop
+eit_loop:
+
+          clr @#lcs   ;stops clock because recursion has finished
+          clr (sp)+
+          clr (sp)+
+          clr (sp)+
+          tst stpOn
+          beq .+4
+          rts pc
+          cmp @#Steps, #1
+          beq itnomov
+          mov @#dstPos, @#destit
+          mov @#srcPos, @#sourceit
+          asl @#sourceit
+          asl @#destit
+          mov #Board, -(sp)
+          jsr r5, movPiece
+          destit:  .blkw 1
+          sourceit:.blkw 1
+          clr (sp)+
+          jsr pc, p_time
+          mov @#WinParam, @#lastWP
+          rts pc
+
+itnomov:
+          mov #4,-(sp)
+          clr -(sp)
+          jsr pc, numOmoves
+          mov (sp)+, @#destitn
+          mov (sp)+, @#srcitn
+          mov #Board, -(sp)
+          jsr r5, movPiece
+          destitn:  .blkw 1
+          srcitn:.blkw 1
+          clr (sp)+
+          mov r4, -(sp)
+          clr r4
+          jsr pc, CalcWP
+          mov r4, @#WinParam
+          mov (sp)+,r4
+          jsr pc, p_time
+          mov @#WinParam, @#lastWP
+          rts pc
+p_time:
+          clr -(sp)
+          clr -(sp)
+          mov #newlStr, (sp)
+          jsr pc, print
+          jsr pc, print
+          mov @#Player,2(sp)
+          dec 2(sp)
+          mov #BWStr, (sp)
+          jsr pc, print
+          cmp @#Player, #1
+          beq .+12
+          mov @#plr2, 2(sp)
+          br .+10
+          mov @#plr1, 2(sp)
+          mov #HCStr, (sp)
+          jsr pc,print
+          clr 2(sp)
+          mov #timeStr, (sp)
+          jsr pc,print
+          cmp @#Player, #1
+          beq .+10
+          mov @#plr2t, (sp)
+          br .+6
+          mov @#plr1t, (sp)
+          jsr pc, printNum
+          mov #1,2(sp)
+          mov #timeStr, (sp)
+          jsr pc,print
+          tst (sp)+
+          tst (sp)+
+          rts pc
+
+
+cngPlr:
+			mov #3, -(sp) ;change player
+			sub @#Player ,(sp) ;change player
+			mov (sp)+, @#Player ;change player
+			rts pc
+
+clock:
+      inc @#count
+      cmp @#count,@#currt
+      bne .+12
+      inc timeOut ;if it is makes timeOut "true"
+      inc mvOn
+      rti
+
+;######################output handling###########################
+
+;~~~~~~~~~~~~~~~~~STACK-for Output handling~~~~~~~~~~~~~~~~
+;0-return address
+;2-string address
+;4-word position
+
+print:
+          mov r1, -(sp) ;r1|| return address|| string address|| word position
+          mov 4(sp), r1 ;moves the string to temporary position
+;finds the word in the sentance
+findWrd:
+          tst 6(sp)
+          beq busy_wp
+          tstb (r1)+
+          bne findWrd
+          dec 6(sp)
+          br findWrd
+;prints the word
+busy_wp:
+          tstb @#tps
+          bpl busy_wp
+          movb (r1)+, @#tpb
+          tstb @r1
+          bne busy_wp
+          mov (sp)+, r1
+          rts pc
+
+;#########################printing board##############################
+
+printbrd:
+          mov r1, -(sp) ;makes register usable
+          mov r2, -(sp) ;makes register usable
+          clr r1
+          clr r2 ;makes register usable
+          clr -(sp) ;prints board string
+          mov #brdStr, -(sp)  ;prints board string
+          jsr pc, print  ;prints board string
+          mov #WBStr, (sp) ;moves white black string to stack
+p_loop:   cmp r1,#200 ;while board is not finished print by number
+          beq epbrd ;while board is not finished print by number
+          cmp r2,#10 ;checks if edge of board
+          bne p_letter ;checks if edge of board
+          clr 2(sp)
+          mov #newlStr, (sp)
+          jsr pc,print
+          mov #WBStr, (sp)
+          clr r2
+p_letter:
+          mov Board(r1),2(sp)
+          jsr pc, print
+          add #2,r1
+          inc r2
+          br p_loop
+epbrd:    clr 2(sp)
+          mov #newlStr,(sp)
+          jsr pc,print
+          jsr pc,print
+          clr (sp)+
+          clr (sp)+
+          mov (sp)+,r2
+          mov (sp)+,r1
+          rts pc
+
+;#####################printing a number####################
+
+;~~~~~~~~~~~~~~~STACK-for printing numbers~~~~~~~~~~~~~~~~~
+;0-return address
+;2-number
+;4- unsigned(0)/signed(1)
+printNum:
+        mov r0,-(sp)
+        mov r1,-(sp)
+        mov 6(sp),r1
+        clr r0
+        tst 10(sp)
+        beq .+24
+        tst r1
+        bge .+20
+        neg r1
+        tstb @#tps
+        bpl .-4
+        mov #55, @#tpb
+        div #10., r0
+        tst r0
+        beq epn_loop
+        mov r0,-(sp)
+        jsr pc,printNum
+        clr (sp)+
+epn_loop:
+        add #60,r1
+        tstb @#tps
+        bpl .-4
+        mov r1, @#tpb
+        mov (sp)+,r1
+        mov (sp)+,r0
+        rts pc
+
+;~~~~~~~~~~~~~~~~~~STACK-for input handling~~~~~~~~~~~~~~~~~
+;0-return address
+;2-PSW
+
+;scannes a characther
+scan:
+          mov r1, -(sp)  ;r1 || return adress|| PSW
+          mov @#strpos, r1 ;moves the current position in word to r1
+          movb @#tkb, (r1) ;moves the input to current position
+          tstb (r1)+
+          clrb (r1)
+          tstb -(r1)
+          cmpb (r1),#10
+          beq chkbks
+          inc strlen ;increases the number of characther scanned
+          cmpb (r1),#15
+          beq chkwrd
+          cmp strlen,#50.
+          beq chkwrd
+          clr -(sp) ;prints characther
+          mov @#strpos, -(sp) ;prints characther
+          jsr pc, print ;prints characther
+          tst (sp)+
+          tst (sp)+
+          incb @#strpos ;changed position in message
+          br endScan
+
+;if enter in scanned checks word
+chkwrd:
+          clr -(sp) ;prints characther
+          mov @#strpos, -(sp) ;prints characther
+          movb #15, (r1) ;prints characther
+          jsr pc, print
+          movb #12, (r1) ;prints characther
+          jsr pc, print
+          movb #inStr, (sp)
+          jsr pc, print ;prints characther
+          movb #12, (r1) ;prints new line
+          mov @#strpos, (sp) ;print new line
+          jsr pc, print
+          movb #15, (r1) ;prints new line
+          mov @#strpos, (sp) ;print new line
+          jsr pc, print
+          clrb (r1)
+          tst (sp)+
+          tst (sp)+
+          jsr pc, cmdvalid
+          clr strlen
+          mov #inStr, r1
+          mov #inStr, strpos
+          clr (r1)+
+          tst (r1)
+          bne .-4
+          br endScan
+
+;if backspace is scanned perfumes backspace function
+chkbks:
+          cmp strlen,#0
+          beq endScan
+          clr -(sp) ;prints characther
+          mov @#strpos, -(sp) ;prints characther
+          jsr pc, print ;prints characther
+          movb #40, (r1) ;cleans last characther if backspace entered
+          jsr pc, print ;cleans last characther if backspace entered
+          movb #10, (r1) ;cleans last characther if backspace entered
+          jsr pc ,print ;cleans last characther if backspace entered
+          tst (sp)+ ;cleans stack
+          tst (sp)+ ;cleans stack
+          clrb (r1) ;cleans last characther if backspace entered
+          clrb -(r1) ;;cleans last characther if backspace entered
+          dec strlen ;decreases the number of characther scanned
+          decb @#strpos ;removes backspace from message
+
+endScan:
+          mov (sp)+, r1
+          bis #1, @#tks
+          rti
+
+
+
+;chekcs if command is valid
+cmdvalid:
+          mov r1, -(sp)
+          mov #inStr, r1
+          cmpb (r1), #40
+          bne .+6 ;check correctness
+          tstb (r1)+
+          br .-10
+          tstb (r1)+
+          tstb (r1)+
+          mov #-1., -(sp)
+          cmpb (r1), #141
+          bne .+6 ;check correctness
+          mov #0,(sp)
+          cmpb (r1), #166
+          bne .+6 ;check correctness
+          mov #1,(sp)
+          cmpb (r1), #155
+          bne .+6 ;check correctness
+          mov #2,(sp)
+          cmpb (r1), #157
+          bne .+6 ;check correctness
+          mov #3,(sp)
+          tstb -(r1)
+          tstb -(r1)
+          mov r1,-(sp)
+          mov #inputStr, -(sp)
+          jsr pc, chkcmd
+          tst (sp)+
+          tst (sp)+
+          tst (sp)+
+          mov (sp)+,r1
+          rts pc
+
+;~~~~~~~~~~~~~~~~~~~~Stack for checking command~~~~~~~~~~~~~~~~~~~~
+;0-return address
+;2-input commends address
+;4-word address
+;6-word position in commends Starting
+
+jcmdnv:
+        jmp cmdnv
+chkcmd:
+        mov r0, -(sp) ;r0|| return address|| commends address|| word adress||position
+        mov r1, -(sp) ;r1||r0|| return address|| commends address|| word adress||position
+        mov r2, -(sp) ;r2||r1||r0|| return address|| commends address|| word adress||position
+        mov r3, -(sp)
+        mov r4, -(sp)
+        mov 20(sp),r0 ;moves position to r0
+        mov 16(sp),r1 ;moves word address to r1
+        mov 14(sp),r2 ;moves commends address to r2
+        clr r3
+        clr r4
+        cmp r0,#-1.
+        beq jcmdnv
+        tst gmeOn
+        bne .+10 ;check correctness
+        tst r0
+        bne jcmdnv
+        br chkcmdl
+        tst r0
+        beq jcmdnv
+chkcmdl:
+        tst  r0
+        beq chkloop
+        tstb (r2)+
+        bne chkcmdl
+        dec  r0
+        br chkcmdl
+chkloop:
+        cmpb (r1),#40
+        beq cmdend
+        tstb (r1)
+        beq cmdend
+        tstb (r2)
+        beq cmdend2
+        cmpb (r1)+,(r2)+
+        bne jcmdnv
+        br chkloop
+cmdend:
+        tstb (r2)
+        beq cmdv
+        br jcmdnv
+cmdend2:
+        cmpb (r1),#40
+        beq cmdv
+        br jcmdnv
+
+
+domov:
+        cmpb (r1)+, #40 ;finds first number
+        beq .-4 ;finds first number
+        tstb -(r1) ;finds first number
+        jsr pc ,chkn ;transform the text to number and moves the number to register 3
+        mov r3,r2  ;moves the number to register 5 (source)
+        clr r3  ;clears the register for further use
+        tstb (r1)+  ;finds second number
+        cmpb (r1)+, #40  ;finds second number
+        beq .-4  ;finds second number
+        tstb -(r1)  ;finds second number
+        jsr pc,chkn  ;transform the text to number and moves the number to register 3
+        mov r3, r0  ;moves the number to register 0 (dest)
+        mov r2,r3
+        clr r2
+        tst r2
+        bne .+6
+        tst r3
+        beq dnomov
+        div #10, r2
+        mov r2,r5
+        mul #10,r5
+        mov #5 ,@#funUse
+        clr -(sp)
+        clr r2
+        clr r4
+        asl r0
+        asl r3
+        asl r5
+        jsr pc,startMv
+        tst (sp)+
+        beq cmdnv
+movv:
+        add r3,r5
+        clr @#lcs   ;stops clock because move is valid
+        mov #Board, -(sp)
+        mov r5,@#sourcem
+        mov r0,@#destm
+        jsr r5, movPiece ;move pieces on board
+        destm: .blkw 1 ;move pieces on board
+        sourcem: .blkw 1 ;move pieces on board
+        inc @#mvOn
+        tst (sp)+
+        mov (sp)+, r4
+        mov (sp)+, r3
+        mov (sp)+, r2
+        mov (sp)+ ,r1
+        mov (sp)+ ,r0
+        rts pc
+
+dnomov:
+        mov #1, -(sp)
+        clr -(sp)
+        jsr pc, numOmoves
+        mov (sp)+, r0
+        clr (sp)+
+        tst r0
+        bne cmdnv
+        inc @#mvOn
+        mov (sp)+, r4
+        mov (sp)+, r3
+        mov (sp)+, r2
+        mov (sp)+ ,r1
+        mov (sp)+ ,r0
+        rts pc
+
+cmdv:
+        cmp 20(sp),#0
+        beq dostart
+        cmp 20(sp),#1
+        beq domov
+        cmp 20(sp),#2
+        beq dotime
+        cmp 20(sp),#3
+        beq dostop
+
+dostop:
+        inc stpOn
+        inc timeOut
+        dec gmeOn
+        neg @#lastWP
+        clr -(sp)
+        mov #stpStr,-(sp)
+        jsr pc,print
+        mov @#Player,2(sp)
+        dec 2(sp)
+        mov #BWStr, (sp)
+        jsr pc, print
+        inc 2(sp)
+        mov #stpStr, (sp)
+        jsr pc, print
+        mov #1, -(sp)
+        mov @#lastWP, -(sp)
+        jsr pc,printNum
+        clr (sp)+
+        clr (sp)+
+        mov #2,2(sp)
+        jsr pc, print
+        tst @#lastWP
+        bgt .+6
+        jsr pc,cngPlr
+        mov @#Player,2(sp)
+        dec 2(sp)
+        mov #BWStr, (sp)
+        jsr pc, print
+        mov #3, 2(sp)
+        mov #stpStr, (sp)
+        jsr pc, print
+        clr (sp)+
+        clr (sp)+
+        mov (sp)+, r4
+        mov (sp)+, r3
+        mov (sp)+, r2
+        mov (sp)+ ,r1
+        mov (sp)+ ,r0
+        rts pc
+
+dotime: halt
+
+
+cmdnv:
+        clr -(sp)
+        mov #nvStr, -(sp)
+        jsr pc ,print
+        mov #inStr, (sp)
+        jsr pc, print
+        inc 2(sp)
+        mov #nvStr, (sp)
+        jsr pc, print
+        tst (sp)+
+        tst (sp)+
+        mov (sp)+, r4
+        mov (sp)+, r3
+        mov (sp)+, r2
+        mov (sp)+ ,r1
+        mov (sp)+ ,r0
+        rts pc
+
+;################doing start command####################
+dostart:
+        clr r0
+        tst gmeOn
+        bne cmdnv
+        tstb (r1)+
+        cmpb (r1),#40
+        beq dostart
+        tstb (r1)
+        beq cmdnv
+        mov #0, r0
+        cmpb (r1), #'h
+        beq chkp
+        mov #1 , r0
+        cmpb (r1), #'c
+        beq chkp
+        br cmdnv
+
+chkp:
+        tstb (r1)+
+        cmpb (r1)+,#40
+        bne strtnv
+        cmpb (r1)+, #40
+        beq .-4
+        tstb -(r1)
+        jsr pc, chkn
+        tst r3
+        beq strtnv
+        tst plr1t
+        beq chnplr1
+        br chnplr2
+chkn:
+        cmpb (r1),#40
+        beq Echkn
+        cmpb (r1),#0
+        beq Echkn
+        cmpb (r1), #60
+        blt Fchkn
+        cmpb (r1), #71
+        bgt Fchkn
+        mul #10. ,r3
+        movb (r1)+,r4
+        sub #60, r4
+        add r4,r3
+        br chkn
+Fchkn:
+        clr r3
+        rts pc
+Echkn:
+        tstb -(r1)
+        rts pc
+strtnv:
+        clr plr1
+        clr plr1t
+        clr plr2
+        clr plr2t
+        br cmdnv
+
+
+
+chnplr1:
+        mov r0, @#plr1
+        mov r3, @#plr1t
+        clr r3
+        clr r4
+        br dostart
+
+chnplr2:
+        mov r0, @#plr2
+        mov r3, @#plr2t
+        inc gmeOn
+        clr -(sp) ;prints welcome message
+        mov #strtStr, -(sp) ;prints welcome message
+        jsr pc, print ;prints welcome message
+        mov #2, r2
+
+printplr:
+        mov #BWStr, (sp)
+        jsr pc, print
+        mov #PlrStr, (sp)
+        jsr pc, print
+        cmp r2,#2
+        bne .+12
+        mov @#plr1 , 2(sp)
+        br .+10
+        mov @#plr2 , 2(sp)
+        mov #HCStr, (sp)
+        jsr pc, print
+        mov #1,2(sp)
+        mov #PlrStr, (sp)
+        jsr pc, print
+        cmp r2,#2
+        bne .+10
+        mov @#plr1t , (sp)
+        br .+6
+        mov @#plr2t , (sp)
+        jsr pc,printNum
+        mov #2,2(sp)
+        mov #PlrStr, (sp)
+        jsr pc, print
+        mov #1, 2(sp)
+        sob r2,printplr
+        tst (sp)+
+        tst (sp)+
+        mov (sp)+, r4
+        mov (sp)+, r3
+        mov (sp)+, r2
+        mov (sp)+ ,r1
+        mov (sp)+ ,r0
+        rts pc
+
+
+;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ATAM 3 CODE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+;~~~~~~~~~~~~~~~~~~~~~STACK-for getMaxWP~~~~~~~~~~~~~~~~~~~~~~~~~
+;0-return address
+;2-address for SrcPos
+;4-address for DstPos
+;6-address for WinParam
+getMaxWP:
+				mov #3, -(sp) ;get first piece on board
+				clr -(sp) ;get first piece on board
+				mov Player, currPlr ;get first piece on board
+				jsr pc, numOmoves ;get first piece on board
+				mov (sp), r0
+				clr (sp)+
+				clr (sp)+
+				mov r0, -(sp) ;sets first piece postition as default
+				mov r0, -(sp) ;sets first piece postition as default
+			  mov #NOVAL, -(sp) ;sets parameter as No Value
+				clr -(sp)
+				jsr pc, findMv  ; ||WP|| Game Parameter || source || dest||return address|| srcPos|| DstPos || WinParam
+        tst timeOut
+        bne tmeOutWP
+				jsr pc, chkVal ;checks if it's nessecary to set default position
+				asr 4(sp) ;makes position by place in board and not by 2 byte
+				asr 6(sp) ;makes position by place in board and not by 2 byte
+				mov (sp), @16(sp) ;places value in the fitting address
+				mov 4(sp), @12(sp) ;places value in the fitting address
+				mov 6(sp), @14(sp) ;places value in the fitting address
+				clr (sp)+ ;clears stack
+				clr (sp)+ ;clears stack
+				clr (sp)+ ;clears stack
+				clr (sp)+ ;clears stack
+				rts pc
+
+tmeOutWP:
+        clr (sp)+ ;clears stack
+        clr (sp)+ ;clears stack
+        clr (sp)+ ;clears stack
+        clr (sp)+ ;clears stack
+        rts pc
+
+chkVal:
+				;checks if the sum of source and destination is 0, if so it sets them to default Value
+				;otherwise it does nothing
+				mov 6(sp), r0
+				add 10(sp), r0
+				cmp r0, #0
+				beq rtnDft
+				rts pc
+rtnDft:
+				mov #3, -(sp)
+				clr -(sp)
+				mov Player, currPlr
+				jsr pc, numOmoves
+				mov (sp), r0
+				clr (sp)+
+				clr (sp)+
+				mov r0, 6(sp)
+				mov r0, 10(sp)
+				rts pc
+;~~~~~~~~~~~~~~~~~~~~STACK-for edge cases~~~~~~~~~~~~~~~~~~~~~~~~
+;0-return address
+;2-best WP
+;4-best Game Parameter-win, lose ,tie
+;6-best source
+;10-best dest
+;endles tie,no move,win and lose situation
+;tie-calculates WP and ends leaf
+;win\lose-end leaf
+;no move-makes turn as staying in place and lets the rival do his turn
+edgCas:
+				mov #Board, -(sp)
+				mov currPlr, -(sp)
+				cmp 4(sp), #TIE
+				beq ACalcWP
+				clr (sp)+
+				clr (sp)+
+				cmp 4(sp), #NOMOV
+				beq nomovE
+				mov currPlr, -(sp)
+				mov #Player, -(sp)
+				jsr pc, minOrMax
+				clr (sp)+
+				clr (sp)+
+				cmp r4, #1
+				bne rtnRevE
+				rts pc
+
+rtnRevE:
+			neg 2(sp)
+			neg 4(sp)
+			rts pc
+
+nomovE:
+			mov #NOVAL, 4(sp) ;moves no value to Game Parameter
+			jsr pc, recur ;game has no moves so doing nothing is the only choice
+			rts pc	;returns from the recursion becuase this son has nothing else to offer
+;~~~~~~~~~~~~~~~~~~~~STACK-for hasMoves~~~~~~~~~~~~~~~~~~~~~~~~~
+;0-return adress
+;2-current player
+;4-address of board
+;6-return adress for recursion
+;10-best WP
+;12-best Game Parameter
+;14-best source
+;16-best destination
+;checks if player has moves left to do
+hasMoves: ;td
+			mov r0,-(sp) ;r0||return address|| return address||current player||address board
+			mov r1,-(sp) ;r1||r0||return address|| return address||current player||address board
+			mov #1, -(sp) ;1||r1||r0||return address|| return address||current player||address board
+			clr -(sp) ;empty||1||r1||r0||return address|| return address||current player||address board
+			jsr pc, numOmoves ;gets number of moves for current Player
+			mov (sp), r0
+			jsr pc, cngPlayer
+			jsr pc, numOmoves ;gets number of moves for current rival
+			mov (sp), r1
+			jsr pc, cngPlayer
+			clr (sp)+ ;1||r1||r0||return address|| return address||current player||address board
+			clr (sp)+ ;r1||r0||return address|| return address||current player||address board
+			cmp 0, r0
+			beq isMv
+			br ehasMv
+
+isMv:
+			mov #3, -(sp)
+			clr -(sp)
+			jsr pc, numOmoves
+			mov (sp), r0
+			clr (sp)+
+			clr (sp)+
+			mov r0, 22(sp)
+			mov r0, 20(sp)
+			mov #0, 14(sp)
+			mov #NOMOV, 16(sp)
+			br ehasMv
+
+ehasMv:
+			mov (sp)+, r1
+			mov (sp)+, r0
+			rts pc
+
+;~~~~~~~~~~~~~~~~~~~~STACK-for CalcWP~~~~~~~~~~~~~~~~~~~~~~~~~
+;0-current player
+;2-address of board
+;4-return adress
+;6-best WP
+;10-best Game Parameter
+;12-best source
+;14-best destination
+;calculates WP in case the number of steps remaining is 0 or tie
+ACalcWP:
+			jsr pc ,CalcWP
+			cmp (sp), Player
+			bne rtnRev
+
+eACalcWP:
+			mov r4, 6(sp)
+			mov #0, 10(sp)
+			clr (sp)+
+			clr (sp)+
+			rts pc
+
+rtnRev:
+			neg r4
+			br eACalcWP
+
+
+CalcWP:
+			mov r0,-(sp) ;r0||return address||return address||current player||address board
+			mov r1,-(sp) ;r1||r0||return address||return address||current player||address board
+			mov #2, -(sp) ;2||r1||r0||return address||return address||current player||address board
+			clr -(sp) ;empty||2||r1||r0||return address||return address||current player||address board
+			jsr pc, numOmoves ;gets number of pieces for current Player
+			mov (sp), r0
+			jsr pc, cngPlayer
+			jsr pc, numOmoves ;gets number of pieces for current rival
+			mov (sp), r1
+			jsr pc, cngPlayer
+			clr (sp)+ ;2||r1||r0||return address||return address||current player||address board
+			clr (sp)+ ;r1||r0||return address||return address||current player||address board
+			sub r1, r0
+			mov r0, r4
+			mov (sp)+, r1 ;r0||return address||return address||current player||address board
+			mov (sp)+, r0 ;return address||return address||current player||address board
+			rts pc
+
+;~~~~~~~~~~~~~~~~~~~~STACK-for checkWin~~~~~~~~~~~~~~~~~~~~~~~~~
+;0-return adress
+;2-current player
+;4-address of board
+;6-return address for recursion
+;10-best WP
+;12-best Game Parameter
+;14-best source
+;16-best destination
+;checks if the current board is win/lose or tie for current player
+checkWin:
+			mov r0,-(sp) ;r0||return address|| return address||current player||address board
+			mov r1,-(sp) ;r1||r0||return address|| return address||current player||address board
+			mov #2, -(sp) ;2||r1||r0||return address|| return address||current player||address board
+			clr -(sp) ;empty||2||r||r0||return address|| return address||current player||address board
+			jsr pc, numOmoves ;gets number of pieces for current Player
+			mov (sp), r0
+			jsr pc, cngPlayer
+			jsr pc, numOmoves ;gets number of pieces for current rival
+			mov (sp), r1
+			jsr pc, cngPlayer
+			clr (sp)+ ;2||r2||r0||return address|| return address||current player||address board
+			clr (sp)+ ;r2||r0||return address|| return address||current player||address board
+			cmp r1, #0
+			beq isWin
+			cmp r0, #0
+			beq isLose
+			mov r2,-(sp) ;r2||r2||r0||return address|| return address||current player||address board
+			mov #1, -(sp) ;1||r2||r1||r0||return address|| return address||current player||address board
+			clr -(sp) ;empty||1||r2||r1||r0||return address|| return address||current player||address board
+			jsr pc, numOmoves ;gets number of moves for current Player
+			mov (sp), r2
+			jsr pc, cngPlayer
+			jsr pc, numOmoves ;gets number of moves for current rival
+			add (sp), r2
+			jsr pc, cngPlayer
+			clr (sp)+ ;1||r2||r1||r0||return address|| return address||current player||address board
+			clr (sp)+ ;r2||r1||r0||return address|| return address||current player||address board
+			cmp 0, r2
+			beq isTie
+			mov (sp)+, r2
+			br eChckWin
+
+isWin:
+			mov #20, 14(sp)
+			mov #WIN, 16(sp)
+			br eChckWin
+isLose:
+			mov #-20, 14(sp)
+			mov #LOSE, 16(sp)
+			br eChckWin
+
+isTie:
+			mov (sp)+, r2
+			mov #0, 14(sp)
+			mov #TIE, 16(sp)
+			br eChckWin
+
+eChckWin:
+			mov (sp)+, r1
+			mov (sp)+, r0
+			rts pc
+
+;~~~~~~~~~~~~~~~~~~~~STACK-for minOrMax~~~~~~~~~~~~~~~~~~~~~~~
+;0-return adress
+;2-address of Player
+;4-current player
+;return 1 if the player is the current player and -1 for the rival
+minOrMax:
+			mov #1, r4 ;insert default value to register
+			mov @2(sp),r2 ;moves the value of Player to register 2
+			mov 4(sp),r3 ;moves the value of current Player to register 2
+			cmp r2, r3 ;check if the value is the same
+			beq eminOMax
+	    neg r4 ;if not negate the value of register 4 and returns it
+			br eminOMax
+
+eminOMax:
+			rts pc
+
+
+
+;~~~~~~~~~~~~~~~~~~~~STACK-for movPiece~~~~~~~~~~~~~~~~~~~~~~~
+;0-return adress
+;2-address Of Board
+;move pieces and perfumes eating if nessecary
+movPiece:
+			mov (r5)+, r1 ;gets desination
+			mov (r5)+, r0 ;gets source
+			add 2(sp), r1 ;moves to the address of destination
+			add 2(sp), r0 ;moves to the address of source
+			mov (r0), (r1)
+			sub 2(sp), r1 ;returns destination to original value
+			mov #0, (r0)
+			sub 2(sp), r0 ;returns source to original value
+			mov r1, r2 ;checks if a piece was eaten
+			sub r0, r2 ;checks if a piece was eaten
+			jsr pc, chkN
+			cmp r2, #32 ;checks if a piece was eaten
+			ble emPiece ;checks if a piece was eaten
+			mov r0, r2 ;clears the piece's position if it was eaten
+			add r1, r2 ;clears the piece's position if it was eaten
+			asr r2 ;clears the piece's position if it was eaten
+			add 2(sp), r2 ;clears the piece's position if it was eaten
+			clr (r2) ;clears the piece's position if it was eaten
+
+emPiece:
+			rts r5
+
+;~~~~~~~~~~~~~~~~~~~~STACK-for reverse movPiece~~~~~~~~~~~~~~~~~~~~~~~
+;0-return adress
+;2-address Of Board
+;moves pieces on board and reverses eating if nessecary
+RmovPiece:
+			mov (r5)+, r1 ;gets desination
+			mov (r5)+, r0 ;gets source
+			add 2(sp), r1 ;moves to the address of destination
+			add 2(sp), r0 ;moves to the address of source
+			mov (r0), (r1)
+			sub 2(sp), r1 ;returns destination to original value
+			mov #0, (r0)
+			sub 2(sp), r0 ;returns source to original value
+			mov r1, r2 ;checks if a piece was eaten
+			sub r0, r2 ;checks if a piece was eaten
+			jsr pc, chkN
+			cmp r2, #32 ;checks if a piece was eaten
+			ble RemPiece ;checks if a piece was eaten
+			mov r0, r2 ;returns the piece that was eaten
+			add r1, r2 ;returns the piece that was eaten
+			asr r2 ;returns the piece that was eaten
+			add 2(sp), r2 ;returns the piece that was eaten
+			add 2(sp), r1 ;moves to the address of destination
+			mov (r1), -(sp) ;gets the color of piece
+			jsr pc, cngClr ;returns the piece that was eaten
+			mov (sp)+, (r2) ;returns the piece that was eaten
+			sub 2(sp), r1 ;returns destination to original value
+
+RemPiece:
+			rts r5
+chkN:
+			tst r2
+			blt negV
+			rts pc
+negV:
+			neg r2
+			rts pc
+
+;~~~~~~~~~~~~~~~~~~~~~STACK-for cmpWP~~~~~~~~~~~~~~~~~~~~~~
+;0-return address to get results
+;2-current wp
+;4-current win param
+;6-current source
+;10-current dest
+;12-dest done
+;14-source done
+;16-r5
+;20-r4
+;22-r3
+;24-r1
+;26-return address for function action
+;30-return address to recursion
+;32-best WP
+;34-best Game Parameter
+;36-best source
+;40-best dest
+;compares the current WP to best WP found and changes value the best value if nessecary
+;or destroy the current value
+cprWP:
+			cmp 34(sp), #NOVAL
+			beq cngVal
+			mov currPlr, -(sp)
+			mov #Player, -(sp)
+			jsr pc, minOrMax
+			clr (sp)+
+			clr (sp)+
+			cmp r4, #-1
+			beq chkLow
+			br chkHig
+
+ecmpWP:
+	  	mov (sp), 10(sp)
+			clr (sp)+
+			clr (sp)+
+			clr (sp)+
+			clr (sp)+
+			rts pc
+
+chkHig:
+			cmp 32(sp),2(sp)
+			blt cngVal
+			br ecmpWP
+
+chkLow:
+			cmp 2(sp),32(sp)
+			blt cngVal
+			br ecmpWP
+
+cngVal:
+			mov 2(sp), 32(sp)
+			mov 4(sp), 34(sp)
+			mov 14(sp), 36(sp)
+			mov 12(sp), 40(sp)
+			br ecmpWP
+
+
+
+
+;~~~~~~~~~~~~~~~~~~~~~STACK-for recursion on map~~~~~~~~~~~~~~~~~~~~~~
+;0-return address
+;2-best WP
+;4-best Game Parameter-win, lose ,tie
+;6-best source
+;10-best dest
+
+JedgCas:
+			jmp edgCas
+JACalcWP:
+			jmp ACalcWP
+
+;find moves on board and perfumes them
+findMv:
+			mov #0, funUse
+	 	  clr r0 ;source Initialization to 0
+			clr r1
+			clr r2 ;destination Initialization to 0
+			clr r3 ;i index Initialization to 0
+			clr r4 ;temporary position for eating Initialization to 0
+			clr r5 ;j index Initialization to 0
+			mov #Board, -(sp)
+			mov currPlr, -(sp)
+			jsr pc, checkWin
+			clr (sp)+
+			clr (sp)+
+			cmp 4(sp), #NOVAL
+			bne JedgCas
+			mov #Board, -(sp)
+			mov currPlr, -(sp)
+			cmp Steps, #0
+			beq JACalcWP
+			clr (sp)+
+			clr (sp)+
+			mov #Board, -(sp)
+			mov currPlr, -(sp)
+			jsr pc, hasMoves
+			clr (sp)+
+			clr (sp)+
+			cmp 4(sp), #NOVAL
+			bne JedgCas
+			br startMv
+
+
+
+;~~~~~~~~~~~~~~~~~~~~STACK-for change Player~~~~~~~~~~
+;0-return address
+cngPlayer:
+			mov #3, -(sp) ;change player
+			sub currPlr ,(sp) ;change player
+			mov (sp)+, currPlr ;change player
+			rts pc
+
+funUse: .blkw 1
+	;0-if the fuction is recursion 1-if the function purpose is to find the number of moves 2-to find the number of pieces
+
+;~~~~~~~~~~~~~~~~~~~~STACK-for finding number of moves or pieces~~~~~~~~~~
+			;0-return address
+			;2-num Of moves or pieces or source
+			;4-thing to do
+;return number of moves for a given player
+numOmoves:
+	    mov 4(sp), funUse
+			mov r0, -(sp)
+			mov r1, -(sp)
+			mov r2, -(sp)
+			mov r3, -(sp)
+			mov r4, -(sp)
+			mov r5, -(sp)
+			clr r0 ;num of moves or num of Pieces Initialization to 0
+			clr r1
+			clr r2 ;Temporary position Initialization to 0
+			clr r3 ;i index Initialization to 0
+			clr r4 ;temporary position for eating Initialization to 0
+			clr r5 ;j index Initialization to 0
+
+
+;startMv - Updates the current position by the row and column index
+;moves to a black or white label in accordance with the number of the player
+
+
+startMv:
+      tst timeOut
+      bne JendcodeM
+			mov r3, r2
+			add r5, r2     ;current position
+			cmp r2,#200
+			bge JendcodeM
+			cmp currPlr, #1 ;checks if player is one or two
+			beq whtsMv
+			br blksMv
+
+JendcodeM:
+			jmp endcodeM
+
+JincPiec:
+			jmp incPiec
+;blksMv - Checks whether the current location has a black stone
+;And the stone option to move left
+blksMv:
+			cmp Board(r2), #2 ;Checks whether the current location we are testing
+			;has a stone of player number 2
+			bne advncMv
+			cmp funUse,#2 ;check if the function is counting pieces
+			beq JincPiec
+      cmp funUse,#3
+      beq JincPiec
+			cmp r2,#160 ;Checks whether the current location we are testing
+			;is the last line for player 2
+			bge endcodeM
+			add #16,r2 ;A possible step of the stone
+			cmp r3,#0 ;Checks if the stone is at the edge of the board
+			;so this move is not possible
+			beq blksMv2
+			cmp Board(r2), #1 ;Checks if there is a stone of the other player at the position
+			;which the stone could have moved to
+			beq eblksMv
+			cmp Board(r2), #2 ;Checks if there is a stone of the current player at the position
+			;which the stone could have moved to
+			beq blksMv2
+			jsr pc ,funAct
+			mov #0, r1
+;blksMv2 - Checks the stone option to move right
+blksMv2:
+	 		add #4,r2 ;Another possible step of the stone
+			cmp r3,#16 ;Checks if the stone is at the edge of the board
+			;so this move is not possible
+			beq advncMv
+			cmp Board(r2),#1 ;Checks if there is a stone of the other player at the position
+			;which the stone could have moved to
+			beq eblksMv2
+			cmp Board(r2),#2 ;Checks if there is a stone of the current player at the position
+			;which the stone could have moved to
+			beq advncMv
+			jsr pc ,funAct
+			mov #0, r1
+
+;advncMv - Moves to the next position on the game board
+advncMv:
+      cmp funUse, #5
+      beq ecodeM
+			cmp r3,#16 ;Checks if the stone is at the edge of the board
+			beq incrow
+			add #2,r3 ;Moves to the next position on the board
+			jmp startMv
+
+;incrow - Moves to the beginning of the next line in the game board
+incrow:
+			clr r3 ;Move to the beginning of the line in the board
+			add #20,r5 ;Move to the next  line in the board
+			jmp startMv
+
+;whtsMv - Checks whether the current location has a white stone
+;And the stone option to move left
+whtsMv:
+			cmp Board(r2),#1; Checks whether the current location we are testing
+			;has a stone of player number 1
+			bne advncMv
+      cmp funUse,#2 ;check if the function is counting pieces
+			beq JincPiec
+      cmp funUse,#3
+      beq JincPiec
+			cmp r2,#16 ;Checks whether the current location we are testing
+			;is the last line for player 1
+			ble advncMv
+			cmp r2,#200 ;Checks whether the current location we are testing
+			;is larger than the board boundaries
+			bge endcodeM
+			sub #16,r2 ;A possible step of the stone
+			cmp r3,#16 ;Checks if the stone is at the edge of the board
+			;so this move is not possible
+			beq whtsMv2
+			cmp Board(r2),#2 ;Checks if there is a stone of the other player at the position
+			;which the stone could have moved to
+			beq ewhtsMv
+			cmp Board(r2),#1 ;Checks if there is a stone of the current player at the position
+			;which the stone could have moved to
+			beq whtsMv2
+			jsr pc ,funAct
+			mov #0, r1
+
+;whtsMv2 - Checks the stone option to move right
+whtsMv2:
+	 		sub #4,r2 ;Another possible step of the stone
+			cmp r3,#0 ;Checks if the stone is at the edge of the board
+			beq advncMv
+			cmp Board(r2),#2 ;Checks if there is a stone of the other player at the position
+			;which the stone could have moved to
+			beq ewhtsMv2
+			cmp Board(r2),#1 ;Checks if there is a stone of the current player at the position
+			;which the stone could have moved to
+			beq advncMv
+			jsr pc ,funAct
+			mov #0, r1
+			jmp advncMv
+
+;eblksMv - Checks whether a black stone has the possibility to e in the left direction
+eblksMv:
+	  	cmp r3,#2 ;Checks if the stone is at the one step before thr edge of the board
+			;So the stone can not e the stone of the opposing player at the edge of the board
+			beq blksMv2
+			cmp r5,#140 ;Checks whether the stone is in one line before the last on the board
+			;So the stone can not e the stone of the opposing player at the end of the board
+			bge blksMv2
+			mov r2,r4 ;Temporary position
+			add #16,r4
+			cmp Board(r4),#0 ;Checks whether the place is empty one step further
+			bne blksMv2
+			mov r4, -(sp)
+			mov r2,r4
+			mov (sp)+, r2
+			jsr pc ,funAct
+			mov #0, r1
+			mov r4, r2
+			jmp blksMv2
+
+
+
+;endcodeM - Returns the number of possible steps and finishes the program
+endcodeM:
+			cmp funUse, #0
+			beq ecodeM
+      cmp funUse, #5
+      beq ecodeM
+			mov #0, funUse
+			mov (sp)+, r5
+			mov (sp)+, r4
+   		mov (sp)+, r3
+			mov (sp)+, r2
+			mov (sp)+, r1
+			mov r0 ,4(sp)
+			mov (sp)+, r0
+
+
+ecodeM: rts pc
+;eblksMv2 - Checks whether a black stone has the possibility to e in the right direction
+eblksMv2:
+			cmp r3,#14 ;Checks if the stone is at the one step before thr edge of the board
+			;So the stone can not e the stone of the opposing player at the edge of the board
+			beq advncMv
+			cmp r5,#140 ;Checks whether the stone is in one line before the last on the board
+			;So the stone can not e the stone of the opposing player at the end of the board
+			bge advncMv
+			mov r2,r4 ;Temporary position
+			add #22,r4
+			cmp Board(r4),#0 ;Checks whether the place is empty one step further
+			bne advncMv
+			mov r4, -(sp)
+			mov r2,r4
+			mov (sp)+, r2
+			jsr pc ,funAct
+			mov #0, r1
+			mov r4, r2
+			jmp advncMv
+
+JadvncMv:
+			jmp advncMv
+
+;ewhtsMv - Checks whether a white stone has the possibility to e in the left direction
+ewhtsMv:
+			cmp r3,#14 ;Checks if the stone is at the one step before thr edge of the board
+			;So the stone can not e the stone of the opposing player at the edge of the board
+			beq whtsMv2
+			cmp r5,#36 ;Checks whether the stone is in one line before the last on the board
+			;So the stone can not e the stone of the opposing player at the end of the board
+			ble whtsMv2
+			mov r2,r4 ;Temporary position
+			sub #16,r4
+			cmp Board(r4),#0 ;Checks whether the place is empty one step further
+			bne whtsMv2
+			mov r4, -(sp)
+			mov r2,r4
+			mov (sp)+, r2
+			jsr pc ,funAct
+			mov #0, r1
+			mov r4, r2
+			jmp whtsMv2
+
+;ewhtsMv2 - Checks whether a white stone has the possibility to e in the right direction
+ewhtsMv2:
+			cmp r3,#2 ;Checks if the stone is at the one step before thr edge of the board
+			;So the stone can not e the stone of the opposing player at the edge of the board
+			beq JadvncMv
+			cmp r5,#36 ;Checks whether the stone is in one line before the last on the board
+			;So the stone can not e the stone of the opposing player at the end of the board
+			ble JadvncMv
+			mov r2,r4 ;Temporary position
+			sub #22,r4
+			cmp Board(r4),#0 ;Checks whether the place is empty one step further
+			bne JadvncMv
+			mov r4, -(sp)
+			mov r2,r4
+			mov (sp)+, r2
+			jsr pc ,funAct
+			mov #0, r1
+			mov r4, r2
+			jmp advncMv
+
+;increases number of pieces found
+incPiec:
+			cmp funUse,#3
+			beq rtnPiec
+			inc r0
+			jmp advncMv
+
+;returns the first found piece's position
+rtnPiec:
+			mov (sp)+, r5
+			mov (sp)+, r4
+			mov (sp)+, r3
+			mov r2, 10(sp)
+			mov (sp)+, r2
+			mov (sp)+, r1
+			mov (sp)+, r0
+			rts pc
+
+rtnmove:
+      clr (sp)+
+      mov r5, 20(sp)
+      mov (sp)+, r5
+      mov (sp)+, r4
+      add r3, 14(sp)
+      mov (sp)+, r3
+      mov r2, 10(sp)
+      mov (sp)+, r2
+      mov (sp)+, r1
+      mov (sp)+, r0
+      rts pc
+
+chkmov:
+      cmp r2,r0
+      bne .+6
+      inc 4(sp)
+      rts pc
+
+;checks which function needs to be done
+funAct:
+			cmp #1, funUse ;Adds the step to the number of possible steps
+			beq stepsAdd ;branch to label which increases steps
+      cmp #4, funUse
+      beq rtnmove
+      cmp #5, funUse
+      beq chkmov
+			br recur ;branch to label which perfumes recursion
+
+;increases the number of steps found
+stepsAdd:
+			inc r0
+			rts pc
+
+
+;~~~~~~~~~~~~~~~~~~~~~STACK-for recursion~~~~~~~~~~~~~~~~~~~~~~
+;0-return address for function action
+;2-return address for recursion
+;4-best WP
+;6-best Game Parameter-win, lose ,tie
+;10-best source
+;12-best dest
+;perfumes preperation for recursion and checks recursion return value
+recur:
+			mov r3, r0
+			add r5, r0
+			mov r1, -(sp)	;r1||return address||return address|| best WP||best Game Parameter|| best source || best dest
+			mov r3, -(sp)	;r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov r4,-(sp) 	;r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov r5,-(sp) 	;r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov r0, -(sp) ;r0||r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov r2, -(sp)	;r2||r0||r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov (sp), dest1 ;move pieces on board
+			mov 2(sp), source1 ;move pieces on board
+			mov #Board, -(sp)
+			jsr r5, movPiece ;move pieces on board
+			dest1: .blkw 1 ;move pieces on board
+			source1: .blkw 1 ;move pieces on board
+			clr (sp)+
+			clr -(sp) ;dest||r2||r0||r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			clr -(sp) ;source||dest||r2||r0||r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov #NOVAL, -(sp) ;win param||source||dest||r2||r0||r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			clr  -(sp) ;wp||win param||source||dest||r2||r0||r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			jsr pc, cngPlayer
+			dec Steps ;decreases the number of steps remaining
+			jsr pc, findMv
+			inc Steps ;increases the number of steps remaining
+			jsr pc, cngPlayer
+			jsr pc, cprWP
+			mov 2(sp) ,-(sp) ;r0||r2||r0||r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov (sp), dest2
+			mov 2(sp), source2
+			mov #Board, -(sp)
+			jsr r5, RmovPiece
+			dest2: .blkw 1
+			source2: .blkw 1
+			clr (sp)+
+			clr (sp)+ ;r2||r0||r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov (sp)+, r2 ;r0||r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov (sp)+, r0 ;r5||r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov (sp)+, r5 ;r4||r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov (sp)+, r4 ;r3||r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov (sp)+, r3 ;r1||return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			mov (sp)+, r1 ;return address|| return address|| best WP||best Game Parameter|| best source || best dest
+			rts pc
+
+
+;~~~~~~~~~~~~~~~~~~~STACK-for reverse Colors~~~~~~~~~~~~
+;0-return address
+;2-color
+;reverse the color given (1->2,2->1)
+cngClr:
+			mov #3, -(sp) ;change color
+			sub 4(sp) ,(sp) ;change color
+			mov (sp), 4(sp) ;change color
+			clr (sp)+
+			rts pc
+
+;~~~~~~~~~~~~~~~~~~~~~~~~~~~~Global Variables~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rate:    .word 50.
+Steps:   .blkw 1
+Player:  .blkw 1
+currPlr: .blkw 1
+plr1:    .word 0
+plr2:    .word 0
+plr1t:   .blkw 1
+plr2t:   .blkw 1
+currt:   .blkw 1
+count:   .blkw 1
+srcPos:  .blkw 1
+dstPos:  .blkw 1
+WinParam:.blkw 1
+lastWP:  .blkw 1
+gmeOn:   .word 0
+mvOn:    .word 0
+stpOn:    .word 0
+timeOut: .word 0
+strlen:  .word 0
+strpos:  .blkw  1
+inputStr:.ascii<start\0move\0time\0stop\0>
+gameStr:.ascii<Welcome to 315236117 and 207018912 checkers game!\n\r\n\r$ \0>
+strtStr:.ascii<Starting a new game\n\r\n\r\0>
+nvStr:  .ascii<Cannot execute "\0"\r\n\n\r$ \0>
+PlrStr: .ascii<player is \0with \0 seconds per move\n\r\n\r\0>
+brdStr: .ascii<Board layout: \r\n\r\n\0>
+WBStr:  .ascii<_\0W\0B\0>
+        .even
+crpStr: .ascii<Current Player: \0\r\n\r\n$ \0>
+BWStr:  .ascii<White \0Black \0>
+HCStr:  .ascii<Human \0Computer \0>
+timeStr:.ascii<move took \0 seconds.\n\r\n\r\0>
+ootStr: .ascii<is out of time. Game Over.\r\n\r\n\0>
+stpStr: .ascii<WP for \0player is \0\r\n\r\n\0player wins!\r\n\r\n\0>
+newlStr:.ascii<\r\n\0>
+        .even
+inStr:  .blkw 26.
+        .even
+Board:	.word	0, 2, 0, 2, 0, 2, 0, 2
+				.word	2, 0, 2, 0, 2, 0, 2, 0
+				.word	0, 2, 0, 2, 0, 2, 0, 2
+				.word	0, 0, 0, 0, 0, 0, 0, 0
+				.word	0, 0, 0, 0, 0, 0, 0, 0
+				.word	1, 0, 1, 0, 1, 0, 1, 0
+				.word	0, 1, 0, 1, 0, 1, 0, 1
+				.word	1, 0, 1, 0, 1, 0, 1, 0
+;~~~~~~~~~~~~~~~~~~~~~~~~~INPUT~~~~~~~~~~~~~~~~~~~~~~~~~
